@@ -111,19 +111,19 @@ Using blockhashes
 Then, my third stupid thought was: But there is actually pseudo-random-like data in the blockchain being continuously fed into smart contracts: the block hashes themselves, which are the output of SHA3 (Keccak256) functions, and which can’t be predicted. Can’t we just add them as random seeds?
 
 ```javascript
-    function buyTicket() payable returns (bool) {
-        if (msg.value >= buyTicketWei) {
-            // if bigger, thanks!
-            // (maybe withdraw-refund in later versions)
-            
-            var blockNumber = block.number;
-            var blockHashNow = block.blockhash(blockNumber);
+function buyTicket() payable returns (bool) {
+  if (msg.value >= buyTicketWei) {
+     // if bigger, thanks!
+     // (maybe withdraw-refund in later versions)
+         
+     var blockNumber = block.number;
+     var blockHashNow = block.blockhash(blockNumber);
 
-            if(uint(keccak256(msg.sender, blockHashNow)) % winningOdds == 0) {
-                // winning ticket
-                pendingWithdrawals[msg.sender] = winningWei;
-                // [...]
-    }
+     if(uint(keccak256(msg.sender, blockHashNow)) % winningOdds == 0) {
+         // winning ticket
+         pendingWithdrawals[msg.sender] = winningWei;
+         // [...]
+     }
 ```
 
 Not so easily! The brute force attack is still a problem during the lifetime of the currently mined block. Anyone watching the blockchain could run it with the current blockhash as input. And miners would have a bigger advantage on this, since they are the ones finding the new hashes.
@@ -259,8 +259,6 @@ The key ideas being:
 * Issuers could cheat and not sign winning tickets to avoid paying a prize, but this behavior could be registered by the master contract.
 
 ```javascript
-pragma solidity ^0.4.11;
-
 contract Master {
     address[] issuerContracts;
 
