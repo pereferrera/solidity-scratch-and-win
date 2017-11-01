@@ -34,8 +34,6 @@ There isn’t. Ethereum was designed to be deterministic and transaction-replaya
 My second stupid thought was: Well, Ethereum addresses themselves could be seen as pseudo-random. Why not using them as random seed? So I coded my first smart contract, which assigns a reward based on the input address:
 
 ```javascript
-pragma solidity ^0.4.11;
-
 contract FirstIdea {
 
     mapping (address => uint) pendingWithdrawals;
@@ -162,8 +160,6 @@ The underlying idea is that nobody can predict the output of an encrypted messag
 I decided to implement an approximation of this idea for the use case:
 
 ```javascript
-pragma solidity ^0.4.11;
-
 contract Signidice {
 
     mapping (bytes32 => bool) playedTickets;
@@ -263,6 +259,8 @@ The key ideas being:
 * Issuers could cheat and not sign winning tickets to avoid paying a prize, but this behavior could be registered by the master contract.
 
 ```javascript
+pragma solidity ^0.4.11;
+
 contract Master {
     address[] issuerContracts;
 
@@ -367,34 +365,46 @@ contract Issuer {
         return false;
     }
     
-    function withdrawPrize(uint ticketNumber, uint8 v, bytes32 r, bytes32 s) returns (bool) {
-        // calculate "ticketId"
-        bytes32 ticketId = sha3(msg.sender, ticketNumber);
+    function validateTicket(uint ticketNumber, address player, uint8 v, bytes32 r, bytes32 s) returns (bool) {
+        if(msg.sender == contractKey) {
+            // calculate "ticketId"
+            bytes32 ticketId = sha3(player, ticketNumber);
+            
+            if(withdrawedTickets[ticketId]) {
+                // already withdrawed, refuse
+                
+                // make sure there is no escrow left after calling this method
+                escrows[player] = 0;
+                playingTime[player] = 0;
+
+                return false;
+            }
+                
+            bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+            bytes32 prefixedHash = sha3(prefix, ticketId);
+            address pubKey = ecrecover(prefixedHash, v, r, s);
+    
+            if(pubKey == contractKey) {
+                // make sure there is no escrow left after calling this method
+                escrows[player] = 0;
+                playingTime[player] = 0;
+
+                // valid signed data, ticket can be validated
+                if(uint(r) % winningOdds == 0) {
+                    // winning ticket, pay
+                    withdrawedTickets[ticketId] = true;
+                    _masterContract.issuerRewardedTicket(this);
+                    player.transfer(winningWei);
+                    return true;
+                }
+            }
         
-        if(withdrawedTickets[ticketId]) {
-            // already withdrawed, refuse
             return false;
         }
-            
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHash = sha3(prefix, ticketId);
-        address pubKey = ecrecover(prefixedHash, v, r, s);
-
-        if(pubKey == contractKey) {
-            // valid signed data, ticket can be validated
-            if(uint(r) % winningOdds == 0) {
-                // winning ticket, pay
-                withdrawedTickets[ticketId] = true;
-                _masterContract.issuerRewardedTicket(this);
-                msg.sender.transfer(winningWei);
-                return true;
-            }
-        }
-        
-        return false;
     }
     
     function releaseFunds(uint amount) {
+        // a way for the issuer to release some profits
         if(msg.sender == contractKey) {
             msg.sender.transfer(amount);
         }
