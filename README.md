@@ -85,25 +85,25 @@ I was happy to have completed my first smart contract and debugged it in Remix (
 
 A small modification that could introduce a bit more of uncertainty would be accumulating hashes of all address that have played so far in the internal storage of the contract:
 
-```
+```javascript
 contract FirstIdeaModified {
 
-    [...]
+    // [...]
 
     bytes32 accumulator;
 
     function FirstIdea() {
-	  [...]
+      // [...]
       accumulator = keccak256(msg.sender);
     }
       
     function buyTicket() payable returns (bool) {
       accumulator = keccak256(accumulator, msg.sender);
       if (msg.value >= buyTicketWei) {
-        [...]
+        // [...]
         if(uint(accumulator) % winningOdds == 0) {
           // winning ticket
-          [...]
+          // [...]
     }
 ```
 
@@ -124,7 +124,7 @@ Then, my third stupid thought was: But there is actually pseudo-random-like data
             if(uint(keccak256(msg.sender, blockHashNow)) % winningOdds == 0) {
                 // winning ticket
                 pendingWithdrawals[msg.sender] = winningWei;
-                [...]
+                // [...]
     }
 ```
 
@@ -253,8 +253,154 @@ We could build an ecosystem on its own that would have several separate entities
 
 * Ticket issuers: They perform the signing process.
 * Ticket buyers: They can buy tickets to any ticket issuer.
-* Master contract: It “regulates” the ecosystem, rewards buyers and issuers.
+* Master contract: It “regulates” the ecosystem.
 
-[... work in progres ...]
+The key ideas being:
+
+* Issuers create a contract through the master contract, issue tickets and reward prizes.
+* Deposits are spread out among ticket issuers. So if one ticket issuer gets hacked, only a smart portion of the money is affected.
+* Issuers work with their own money so they have no incentive to play their own tickets.
+* Issuers could cheat and not sign winning tickets to avoid paying a prize, but this behavior could be registered by the master contract.
+
+```javascript
+contract Master {
+    address[] issuerContracts;
+
+    mapping (address => uint) issuerTimeouts;
+    mapping (address => uint) issuerSoldTickets;
+    mapping (address => uint) issuerRewardedTickets;
+    
+    uint createIssuerWei = 1000000000000000000;
+    
+    function createContract (bytes32 name) payable {
+        if(msg.value >= createIssuerWei) {
+            address newContract = new Issuer(name, msg.sender, this);
+            // Transfer the diposit directly to the issuer contract
+            newContract.transfer(msg.value);
+            issuerContracts.push(newContract);
+        }
+    }
+    
+    function issuerTimedOut(Issuer issuer) {
+        issuerTimeouts[msg.sender] += 1;
+    }
+    
+    function issuerSoldTicket(Issuer issuer) {
+        issuerSoldTickets[msg.sender] += 1;
+    }
+    
+    function issuerRewardedTicket(Issuer issuer) {
+        issuerRewardedTickets[msg.sender] += 1;
+    }
+}
+
+contract Issuer {
+
+    mapping (bytes32 => bool) playedTickets;
+    mapping (bytes32 => bool) withdrawedTickets;
+    
+    mapping (address => uint) escrows;
+    mapping (address => uint) playingTime;
+    
+    uint buyTicketWei;
+    uint winningWei;
+    uint winningOdds;
+    
+    address contractKey;
+    bytes32 _name;
+    
+    uint issuerTimeout;
+
+    Master _masterContract;
+    
+    function Issuer(bytes32 name, address owner, Master masterContract) {
+        _name = name;
+        _masterContract = masterContract;
+        buyTicketWei = 1000000000000000000;
+        winningWei = buyTicketWei * 1;
+        winningOdds = 1;
+        issuerTimeout = 1;
+        contractKey = owner;
+    }
+      
+    function buyTicket(uint ticketNumber) payable returns (bool) {
+        if (msg.value >= buyTicketWei) {
+            // if bigger, thanks!
+            // (maybe withdraw-refund in later versions)
+            
+            // In case the issuer times out and we need to refund
+            escrows[msg.sender] = buyTicketWei;
+            playingTime[msg.sender] = block.timestamp;
+           
+            // calculate "ticketId"
+            bytes32 ticketId = sha3(msg.sender, ticketNumber);
+            
+            if(playedTickets[ticketId]) {
+                // already played, refuse
+                // (withdraw-refund in later versions)
+                return false;
+            }
+            
+            playedTickets[ticketId] = true;
+            _masterContract.issuerSoldTicket(this);
+            return true;
+        } else {
+            // invalid price paid
+            // (withdraw-refund in later versions)
+        }
+        return false;
+    }
+    
+    function withdrawEscrow() returns (bool) {
+        // all uninitialised state has zero values
+        if(escrows[msg.sender] > 0 && playingTime[msg.sender] > 0) {
+            if(block.timestamp - playingTime[msg.sender] > issuerTimeout) {
+                // ticket won't be played, refund
+                var refund = escrows[msg.sender];
+                escrows[msg.sender] = 0;
+                playingTime[msg.sender] = 0;
+                _masterContract.issuerTimedOut(this);
+                msg.sender.transfer(refund);
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    function withdrawPrize(uint ticketNumber, uint8 v, bytes32 r, bytes32 s) returns (bool) {
+        // calculate "ticketId"
+        bytes32 ticketId = sha3(msg.sender, ticketNumber);
+        
+        if(withdrawedTickets[ticketId]) {
+            // already withdrawed, refuse
+            return false;
+        }
+            
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 prefixedHash = sha3(prefix, ticketId);
+        address pubKey = ecrecover(prefixedHash, v, r, s);
+
+        if(pubKey == contractKey) {
+            // valid signed data, ticket can be validated
+            if(uint(r) % winningOdds == 0) {
+                // winning ticket, pay
+                withdrawedTickets[ticketId] = true;
+                _masterContract.issuerRewardedTicket(this);
+                msg.sender.transfer(winningWei);
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    function releaseFunds(uint amount) {
+        if(msg.sender == contractKey) {
+            msg.sender.transfer(amount);
+        }
+    }
+}
+```
+
 
 
