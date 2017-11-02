@@ -1,8 +1,8 @@
 # Ideas on implementing a simple "scratch & win" game on the Blockchain
 
-(Disclaimer I: This article's blockchain technical level is mostly beginner and the code snippets shown here, although tested, are not meant to be used in production. The aim of this article is to share knowledge, discoveries and ideas. Any addition / comment would be more than welcome.).
+(*Disclaimer I: This article's blockchain technical level is mostly beginner and the code snippets shown here, although tested, are not meant to be used in production. The aim of this article is to share knowledge, discoveries and ideas. Any addition / comment would be more than welcome.*).
 
-(Disclaimer II: The topic of this article is mostly randomness on Ethereum, which has already ben discussed in several places like in [this thread](https://ethereum.stackexchange.com/questions/191/how-can-i-securely-generate-a-random-number-in-my-smart-contract). The value of this article lies more in the fact that it is structured around trying to get a practical idea implemented, the process I went through and the order in which I found out certain things.)
+(*Disclaimer II: The topic of this article is mostly randomness on Ethereum, which has already ben discussed in several places like in [this thread](https://ethereum.stackexchange.com/questions/191/how-can-i-securely-generate-a-random-number-in-my-smart-contract). The value of this article lies more in the fact that it is structured around trying to get a practical idea implemented, the process I went through and the order in which I found out certain things.*)
 
 During the previous months my interest in blockchain technologies has increased steadily. As somebody who has always been working in distributed systems, the advent of a technology which, beyond its obvious financial scope, promises to “decentralize everything”, sounds certainly appealing.
 
@@ -13,6 +13,8 @@ Even though we seem to be on a very early stage where new blockchains are still 
 So I read a couple of books on Ethereum and Solidity and, as I usually do with any new technology, I wanted to quickly get my hands dirty and learn “by doing”. In this article I want to share my experience of trying to implement a simple task on Ethereum, and a few things I learned from it.
 
 I wanted to implement a simple lottery-style game, one which simply involves buying a ticket and knowing immediately whether the ticket has a prize or not (kind of like “scratch & win” cards). 
+
+![scratch_and_win](https://en.wikipedia.org/wiki/Scratchcard#/media/File:Scratch_game.jpg)
 
 This seems like a good use case for blockchain, as it involves instant rewarding. And it looks simple enough that it can be used as a learning task. But, **is it really so simple**?
 
