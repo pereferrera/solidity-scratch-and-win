@@ -14,7 +14,7 @@ So I read a couple of books on Ethereum and Solidity and, as I usually do with a
 
 I wanted to implement a simple lottery-style game, one which simply involves buying a ticket and knowing immediately whether the ticket has a prize or not (kind of like “scratch & win” cards). 
 
-![scratch_and_win](https://en.wikipedia.org/wiki/Scratchcard#/media/File:Scratch_game.jpg)
+![scratch_and_win](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Scratch_game.jpg/1200px-Scratch_game.jpg)
 
 This seems like a good use case for blockchain, as it involves instant rewarding. And it looks simple enough that it can be used as a learning task. But, **is it really so simple**?
 
