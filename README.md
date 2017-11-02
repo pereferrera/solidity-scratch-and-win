@@ -99,7 +99,7 @@ contract FirstIdea {
 }
 ```
 
-I was happy to have completed my first (very dummy) smart contract and debugged it in [Remix](http://remix.ethereum.org/) (a great tool, by the way! Check out its debugger). But then, I realized, anyone could create a new Ethereum address from a random private key, and a simple brute force calculation would eventually produce a winning address, which could then be registered in the public blockchain and used to get a reward.
+I was happy to have completed my first (very dummy) smart contract and debugged it in [Remix](http://remix.ethereum.org/) (a great tool, by the way! Check out its debugger). But then, I realized, **anyone can see the contract code**, run a simulation against their own address and eventually produce a winning payload. Quite obvious, isn't it?
 
 A small modification that could introduce a bit more of uncertainty would be accumulating hashes of all address that have played so far in the internal storage of the contract:
 
