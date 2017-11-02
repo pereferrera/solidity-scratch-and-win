@@ -44,6 +44,7 @@ My second stupid thought was: Well, Ethereum addresses themselves could be seen 
 ```javascript
 contract FirstIdea {
 
+    mapping (bytes32 => bool) playedTickets;
     mapping (address => uint) pendingWithdrawals;
     
     uint buyTicketWei;
@@ -57,12 +58,22 @@ contract FirstIdea {
         winningOdds = 1;
     }
       
-    function buyTicket() payable returns (bool) {
+    function buyTicket(uint payload) payable returns (bool) {
          if (msg.value >= buyTicketWei) {
             // if bigger, thanks!
             // (maybe withdraw-refund in later versions)
 
-            if(uint(msg.sender) % winningOdds == 0) {
+            var ticketId = sha3(msg.sender, payload);
+            
+            if(playedTickets[ticketId]) {
+                // already played, refuse
+                // (withdraw-refund in later versions)
+                return false;
+            }
+            
+            playedTickets[ticketId] = true;
+            
+            if(uint(ticketId) % winningOdds == 0) {
                 // winning ticket
                 pendingWithdrawals[msg.sender] = winningWei;
                 return true;
@@ -93,25 +104,18 @@ I was happy to have completed my first (very dummy) smart contract and debugged 
 A small modification that could introduce a bit more of uncertainty would be accumulating hashes of all address that have played so far in the internal storage of the contract:
 
 ```javascript
-contract FirstIdeaModified {
-
-    // [...]
-
     bytes32 accumulator;
 
     function FirstIdea() {
-      // [...]
+      // ...
       accumulator = keccak256(msg.sender);
     }
       
-    function buyTicket() payable returns (bool) {
+    function buyTicket(uint payload) payable returns (bool) {
       accumulator = keccak256(accumulator, msg.sender);
       if (msg.value >= buyTicketWei) {
-        // [...]
-        if(uint(accumulator) % winningOdds == 0) {
-          // winning ticket
-          // [...]
-    }
+        // ...
+        var ticketId = sha3(accumulator, payload);
 ```
 
 However, even if it looks safer, this still has the same problem: since **smart contract data is public**, anyone could look into the accumulated value “accumulator” at any given moment in time and perform the brute-force attack, in the hopes that there is enough time to call the contract with the new address before somebody else does it...
@@ -121,24 +125,15 @@ However, even if it looks safer, this still has the same problem: since **smart 
 Then, my third stupid thought was: There is actually pseudo-random-like data in the blockchain being continuously fed into smart contracts: the **blockhashes** themselves, which are the output of SHA3 (Keccak256) functions, and which can’t be predicted. Can’t we just add them as random seeds?
 
 ```javascript
-function buyTicket() payable returns (bool) {
-  if (msg.value >= buyTicketWei) {
-     // if bigger, thanks!
-     // (maybe withdraw-refund in later versions)
-         
      var blockNumber = block.number;
      var blockHashNow = block.blockhash(blockNumber);
 
-     if(uint(keccak256(msg.sender, blockHashNow)) % winningOdds == 0) {
-         // winning ticket
-         pendingWithdrawals[msg.sender] = winningWei;
-         // [...]
-     }
+     var ticketId = sha3(msg.sender, blockHashNow, payload);
 ```
 
 Not so easily! The brute force attack is still a problem during the lifetime of the currently mined block. Anyone watching the blockchain could run it with the current blockhash as input. And miners would have a bigger advantage on this, since they are the ones finding the new hashes.
 
-Looking into the future, however, is safe. This is the approach used by [TrueFlip](https://trueflip.io/) (they run a lottery based on the next hash after the closing time of the lottery). So it is actually ok to use, say, the N-th blockhash after the current one for a big enough N. The problem with this approach is, obviously, **latency**. For the use case I wanted to implement, one can’t really buy a ticket and wait for hours before knowing if it has a prize or not. And we still need to have a random decision on a per-ticket basis - if we only used the blockhash, **we could only sell one ticket per block**!
+Looking into the future, however, is safe. This is the approach used by [TrueFlip](https://trueflip.io/) (they run a lottery based on the next hash after the closing time of the lottery). So it is actually ok to use, say, the N-th blockhash after the current one for a big enough N. The problem with this approach is, obviously, **latency**. For the use case I wanted to implement, one can’t really buy a ticket and wait for hours before knowing if it has a prize or not.
 
 # Using an Oracle
 
